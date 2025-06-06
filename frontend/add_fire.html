@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dodaj Pożar</title>
+</head>
+<body>
+  <h1>Dodaj pożar</h1>
+
+  <form id="fireForm">
+    <label>Data wykrycia:<br>
+      <input type="date" name="data_wykrycia" required>
+    </label><br><br>
+
+    <label>Opis:<br>
+      <input type="text" name="opis" required>
+    </label><br><br>
+
+    <label>Źródło danych:<br>
+      <input type="text" name="zrodlo_danych" required>
+    </label><br><br>
+
+    <label>Wiarygodność (np. 0.95):<br>
+      <input type="number" step="0.01" name="wiarygodnosc" required>
+    </label><br><br>
+
+    <label>ID lokalizacji:<br>
+      <input type="number" name="lokalizacja_id_lok" required>
+    </label><br><br>
+
+    <button type="submit">Wyślij</button>
+  </form>
+
+  <p id="result"></p>
+
+  <script>
+    document.getElementById('fireForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const form = e.target;
+
+      const fire = {
+        data_wykrycia: form.data_wykrycia.value,
+        opis: form.opis.value,
+        zrodlo_danych: form.zrodlo_danych.value,
+        wiarygodnosc: parseFloat(form.wiarygodnosc.value),
+        lokalizacja_id_lok: parseInt(form.lokalizacja_id_lok.value)
+      };
+
+      try {
+        const response = await fetch('http://localhost:8000/fires', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fire)
+        });
+
+        const result = await response.json();
+        document.getElementById('result').innerText = result.message || 'Wysłano!';
+      } catch (err) {
+        document.getElementById('result').innerText = '❌ Błąd podczas wysyłania';
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

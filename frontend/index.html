@@ -1,0 +1,28 @@
+<script>
+  console.log("Plik HTML się załadował!");
+</script>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fire OSINT - Test Frontendu</title>
+</head>
+<body>
+  <h1>Fire OSINT</h1>
+  <button onclick="fetchMessage()">Sprawdź backend</button>
+  <p id="result"></p>
+
+  <script>
+    async function fetchMessage() {
+      try {
+        const response = await fetch('http://localhost:8000/');
+        const data = await response.json();
+        document.getElementById('result').innerText = data.message;
+      } catch (error) {
+        document.getElementById('result').innerText = 'Błąd połączenia z backendem';
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>
