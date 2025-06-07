@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Test bazy danych</title>
+</head>
+<body>
+  <h1>Test połączenia z bazą danych</h1>
+  <button onclick="testDB()">Sprawdź</button>
+  <p id="result"></p>
+
+  <script>
+    async function testDB() {
+      try {
+        const response = await fetch("http://localhost:8000/test-db");
+        const data = await response.json();
+        document.getElementById("result").innerText = data.message;
+      } catch (error) {
+        document.getElementById("result").innerText = "Błąd połączenia!";
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>
