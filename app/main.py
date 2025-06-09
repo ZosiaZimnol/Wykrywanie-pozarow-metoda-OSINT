@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import test
+from app.db.database import get_db_connection
 
 
 app = FastAPI()
@@ -26,3 +27,20 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
+
+
+@app.get("/ping-db")
+async def ping_db():
+    try:
+        print("🔄 Próba połączenia z bazą danych...")
+        conn = get_db_connection()
+        print("✅ Połączono z bazą.")
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM lokalizacja;")
+        result = cur.fetchone()
+        cur.close()
+        conn.close()
+        return {"db": "ok", "result": result}
+    except Exception as e:
+        print(f"❌ Błąd połączenia z DB: {e}")
+        return {"db": "error", "details": str(e)}
