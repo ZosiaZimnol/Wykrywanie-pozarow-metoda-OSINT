@@ -1,0 +1,4 @@
+client_id: 70KphBW1vEavSkGH8vTywg
+client_secret: CrRvlRrxPZ_D8ZQstRWbP_wOA3cWfA
+login: Anastasiia_Pashko
+hasło: anastasiiaPashko03#
