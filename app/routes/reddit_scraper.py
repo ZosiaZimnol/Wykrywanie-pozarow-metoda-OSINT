@@ -17,8 +17,8 @@ def scrape_and_store_posts():
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Dodaj źródło danych (jeśli nie istnieje)
-    cur.execute("SELECT id_zr FROM zrodla_danych WHERE nazwa = 'Reddit'")
+    # Pobierz lub utwórz źródło danych "Reddit"
+    cur.execute("SELECT id_zr FROM zrodla_danych WHERE nazwa = %s", ('Reddit',))
     result = cur.fetchone()
     if result:
         zrodlo_id = result[0]
@@ -28,31 +28,33 @@ def scrape_and_store_posts():
             VALUES (%s, %s, %s, %s) RETURNING id_zr
         """, ('Reddit', 'media społecznościowe', 'https://www.reddit.com', 'API'))
         zrodlo_id = cur.fetchone()[0]
+        conn.commit()
 
     for sub in SUBREDDITS:
-        for post in reddit.subreddit(sub).hot(limit=10):
+        subreddit = reddit.subreddit(sub)
+        for post in subreddit.hot(limit=10):
             title = post.title
             content = post.selftext
             source_url = f"https://www.reddit.com{post.permalink}"
             created = datetime.utcfromtimestamp(post.created_utc).date()
 
-            # 🔍 Klasyfikacja NLP – czy to post o pożarze?
+            # NLP - filtrujemy posty niezwiązane z pożarami
             if not is_fire_related(f"{title} {content}"):
                 continue
 
-            # 🛡️ Duplikat?
+            # Sprawdź, czy URL już istnieje w tabeli 'pozar' (kolumna zrodlo_danych to URL)
             cur.execute("SELECT 1 FROM pozar WHERE zrodlo_danych = %s", (source_url,))
             if cur.fetchone():
                 continue
 
-            # 🔥 Zapis do pozar (bez lokalizacji, na razie NULL)
+            # Wstawiamy nowy wpis do pozar (lokalizacja NULL bo jeszcze nie mamy danych)
             cur.execute("""
                 INSERT INTO pozar (data_wykrycia, opis, zrodlo_danych, wiarygodnosc, lokalizacja_id_lok)
                 VALUES (%s, %s, %s, %s, NULL) RETURNING id_pozaru
             """, (created, title[:1000], source_url, 0.85))
             pozar_id = cur.fetchone()[0]
 
-            # 📝 Zapis do raport
+            # Wstawiamy raport powiązany z pożarem i źródłem danych
             cur.execute("""
                 INSERT INTO raport (tekst, data_publikacji, autor, pozar_id_pozaru, zrodla_danych_id_zr)
                 VALUES (%s, %s, %s, %s, %s)
@@ -64,6 +66,7 @@ def scrape_and_store_posts():
                 zrodlo_id
             ))
 
-    conn.commit()
+            conn.commit()
+
     cur.close()
     conn.close()
