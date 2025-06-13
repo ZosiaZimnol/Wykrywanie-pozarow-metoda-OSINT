@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.db.database import get_db_connection
+from app.routes.reddit_scraper import scrape_and_store_posts 
 
 router = APIRouter()
 
@@ -25,3 +26,11 @@ async def test_database_connection():
         return {"message": "Połączenie OK!", "dane": result}
     except Exception as e:
         return {"message": f"Błąd połączenia: {str(e)}"}
+
+@router.get("/reddit-scrape")
+async def reddit_scrape():
+    try:
+        scrape_and_store_posts()
+        return {"message": "Dane Reddit zapisane"}
+    except Exception as e:
+        return {"error": str(e)}
