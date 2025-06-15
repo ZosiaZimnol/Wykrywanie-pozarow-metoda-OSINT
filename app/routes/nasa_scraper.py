@@ -1,18 +1,18 @@
-# app/routes/nasa_scraper.py
-
 import os
 import csv
 import requests
 from io import StringIO
 from datetime import datetime
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from app.db.database import get_db_connection
 
-# Klucz z .env lub na sztywno
+# Klucz API i URL pobierania
 NASA_API_KEY = os.getenv("NASA_API_KEY", "c378bbd852a1e124cec4a8890f11160d")
+NASA_URL = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{NASA_API_KEY}/MODIS_NRT/world/1"
 
-# GLOBALNY endpoint (MODIS, 24h)
-NASA_URL = "https://firms.modaps.eosdis.nasa.gov/api/area/csv/c378bbd852a1e124cec4a8890f11160d/MODIS_NRT/world/1"
-
+# Inicjalizacja geolokalizatora
+geolocator = Nominatim(user_agent="fire_osint")
 
 def fetch_and_store_nasa_fires():
     print(f"📡 Pobieram dane z NASA: {NASA_URL}")
@@ -36,40 +36,76 @@ def fetch_and_store_nasa_fires():
         try:
             lat = float(row['latitude'])
             lon = float(row['longitude'])
-            acq_date = datetime.strptime(row['acq_date'], "%Y-%m-%d").date()
-            confidence = float(row.get('confidence', 0))
-            description = f"NASA fire data (brightness: {row.get('brightness', '')})"
 
-            # Sprawdź, czy taki punkt już istnieje
-            cur.execute("""
-                SELECT id_lok FROM lokalizacja 
-                WHERE ST_DWithin(geom, ST_SetSRID(ST_MakePoint(%s, %s), 4326), 0.0005)
-            """, (lon, lat))
-            existing = cur.fetchone()
+            # Reverse geocoding
+            address = "NASA FIRMS"
+            wojewodztwo = "Nieznane"
 
-            if existing:
-                id_lok = existing[0]
-            else:
+            try:
+                location = geolocator.reverse(f"{lat}, {lon}", timeout=10)
+                if location and location.address:
+                    address = location.address
+
+                    # Ustal województwo/provincję/region
+                    if location.raw and 'address' in location.raw:
+                        address_data = location.raw['address']
+                        wojewodztwo = (
+                            address_data.get('state') or
+                            address_data.get('province') or
+                            address_data.get('region') or
+                            address_data.get('state_district') or
+                            address_data.get('county') or
+                            address_data.get('country', 'Nieznane')
+                        )
+            except (GeocoderTimedOut, GeocoderServiceError) as geo_err:
+                print(f"⚠️ Błąd geolokalizacji: {geo_err}")
+
+            # Zapis do bazy danych
+            try:
+                # Wstawienie do tabeli lokalizacja
                 cur.execute("""
                     INSERT INTO lokalizacja (geom, adres_opisowy, wojewodztwo)
-                    VALUES (ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s)
-                    RETURNING id_lok
-                """, (lon, lat, "NASA FIRMS", "Nieznane"))
-                id_lok = cur.fetchone()[0]
+                    VALUES (
+                        ST_SetSRID(ST_MakePoint(%s, %s), 4326),
+                        %s,
+                        %s
+                    )
+                    RETURNING id_lok;
+                """, (lon, lat, address, wojewodztwo))
+                
+                lokalizacja_id = cur.fetchone()[0]
 
-            # Dodaj pożar
-            cur.execute("""
-                INSERT INTO pozar (data_wykrycia, opis, zrodlo_danych, wiarygodnosc, lokalizacja_id_lok)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (acq_date, description[:1000], "NASA FIRMS", confidence / 100, id_lok))
+                # Wstawienie do tabeli pozar z linkiem do źródła danych
+                cur.execute("""
+                    INSERT INTO pozar (
+                        data_wykrycia, 
+                        opis, 
+                        zrodlo_danych, 
+                        wiarygodnosc, 
+                        lokalizacja_id_lok
+                    )
+                    VALUES (%s, %s, %s, %s, %s);
+                """, (
+                    datetime.utcnow().date(),
+                    "Pożar wykryty przez satelitę NASA FIRMS",
+                    NASA_URL,  # ← zapisujemy źródło danych
+                    0.9,
+                    lokalizacja_id
+                ))
 
-            count += 1
+                conn.commit()
+                count += 1
+                print(f"✅ Dodano pożar: {address} ({lat}, {lon})")
 
-        except Exception as e:
-            print(f"❌ Błąd przetwarzania wiersza: {e}")
+            except Exception as db_err:
+                conn.rollback()
+                print(f"❌ Błąd bazy danych: {db_err}")
+                print(f"🔍 Problem z wierszem: {row}")
 
-    conn.commit()
+        except Exception as parse_err:
+            print(f"❌ Błąd przetwarzania: {parse_err}")
+            print(f"🔍 Problem z wierszem: {row}")
+
     cur.close()
     conn.close()
-
-    print(f"✅ Zakończono zapis danych NASA. Dodano: {count} rekordów.")
+    print(f"✅ Zakończono import. Dodano {count} nowych pożarów.")
