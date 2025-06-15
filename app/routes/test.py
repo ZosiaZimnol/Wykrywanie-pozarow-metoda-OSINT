@@ -22,7 +22,6 @@ async def test_database_connection():
             }
             for row in rows
         ]
-
         return {"message": "Połączenie OK!", "dane": result}
     except Exception as e:
         return {"message": f"Błąd połączenia: {str(e)}"}
