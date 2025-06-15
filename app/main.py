@@ -3,8 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes import test
 from app.routes.reddit_scraper import scrape_and_store_posts
 from app.db.database import get_db_connection
+from app.routes.nasa_scraper import fetch_and_store_nasa_fires
 import threading
 import time
+
 
 app = FastAPI()
 
@@ -58,13 +60,19 @@ def count_pozary():
 # Funkcja uruchamiająca scraper okresowo
 def periodic_scrape(interval_seconds=60):
     while True:
-        print("🔁 Automatyczne pobieranie danych z Reddita...")
+        print("🔁 Automatyczne pobieranie danych z Reddita i NASA...")
         try:
             scrape_and_store_posts()
             print("✅ Dane z Reddita zostały zapisane.")
         except Exception as e:
-            print(f"❌ Błąd scrapera: {e}")
+            print(f"❌ Błąd scrapera Reddit: {e}")
+        try:
+            fetch_and_store_nasa_fires()
+            print("✅ Dane z NASA zostały zapisane.")
+        except Exception as e:
+            print(f"❌ Błąd scrapera NASA: {e}")
         time.sleep(interval_seconds)
+
 
 @app.on_event("startup")
 def start_background_scraper():
