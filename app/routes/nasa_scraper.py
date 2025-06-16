@@ -7,6 +7,7 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from app.db.database import get_db_connection
 
+
 # Klucz API i URL pobierania
 NASA_API_KEY = os.getenv("NASA_API_KEY", "c378bbd852a1e124cec4a8890f11160d")
 NASA_URL = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{NASA_API_KEY}/MODIS_NRT/world/1"
@@ -105,7 +106,14 @@ def fetch_and_store_nasa_fires():
         except Exception as parse_err:
             print(f"❌ Błąd przetwarzania: {parse_err}")
             print(f"🔍 Problem z wierszem: {row}")
+    
+
 
     cur.close()
     conn.close()
     print(f"✅ Zakończono import. Dodano {count} nowych pożarów.")
+
+def update_nasa_data():
+    print("🔁 Aktualizacja danych z NASA...")
+    fetch_and_store_nasa_fires()
+    print("✅ NASA scraping zakończony.")

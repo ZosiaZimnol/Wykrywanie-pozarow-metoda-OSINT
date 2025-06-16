@@ -166,3 +166,8 @@ def scrape_and_store_posts():
 if __name__ == "__main__":
     scrape_and_store_posts()
     print("✅ Scraping zakończony!")
+
+def update_reddit_data():
+    print("🔁 Aktualizacja danych z Reddita...")
+    scrape_and_store_posts()
+    print("✅ Reddit scraping zakończony.")

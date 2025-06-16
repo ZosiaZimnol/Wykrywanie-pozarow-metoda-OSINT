@@ -1,19 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import test
 from app.routes.reddit_scraper import scrape_and_store_posts
-from app.db.database import get_db_connection
 from app.routes.nasa_scraper import fetch_and_store_nasa_fires
-import threading
-import time
-
+from app.db.database import get_db_connection
+from app.routes import reddit_scraper, nasa_scraper
 
 app = FastAPI()
 
 # Middleware CORS (dla frontendów lokalnych)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Możesz ograniczyć do frontendu
+    allow_origins=["*"],  # Możesz zawęzić np. do ["http://localhost:3000"]
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,6 +20,13 @@ app.add_middleware(
 # Rejestracja routerów
 app.include_router(test.router)
 print("✅ ROUTER ZOSTAŁ ZAŁADOWANy")
+
+# 🔘 Endpoint wywoływany przyciskiem „Aktualizuj”
+@app.post("/aktualizuj")
+def run_update(background_tasks: BackgroundTasks):
+    background_tasks.add_task(scrape_and_store_posts)
+    background_tasks.add_task(fetch_and_store_nasa_fires)
+    return {"status": "Aktualizacja rozpoczęta"}
 
 @app.get("/")
 async def root():
@@ -56,24 +61,3 @@ def count_pozary():
     cur.close()
     conn.close()
     return {"count": count}
-
-# Funkcja uruchamiająca scraper okresowo
-def periodic_scrape(interval_seconds=60):
-    while True:
-        print("🔁 Automatyczne pobieranie danych z Reddita i NASA...")
-        try:
-            scrape_and_store_posts()
-            print("✅ Dane z Reddita zostały zapisane.")
-        except Exception as e:
-            print(f"❌ Błąd scrapera Reddit: {e}")
-        try:
-            fetch_and_store_nasa_fires()
-            print("✅ Dane z NASA zostały zapisane.")
-        except Exception as e:
-            print(f"❌ Błąd scrapera NASA: {e}")
-        time.sleep(interval_seconds)
-
-
-@app.on_event("startup")
-def start_background_scraper():
-    threading.Thread(target=periodic_scrape, daemon=True).start()
