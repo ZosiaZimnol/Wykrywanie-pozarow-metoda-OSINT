@@ -21,6 +21,32 @@ reddit = praw.Reddit(
 nlp = spacy.load("en_core_web_sm")
 geolocator = Nominatim(user_agent="fire_osint")
 
+
+def ocena_zagrozenia_reddit(upvotes: int, comments: int, tekst: str) -> str:
+    score = 0
+
+    if upvotes > 50:
+        score += 1
+    if comments > 20:
+        score += 1
+
+    tekst = tekst.lower()
+    keywords_high = ["ewakuacja", "wielki pożar", "płonie całe", "zginęli", "ognia nie da się opanować"]
+    keywords_medium = ["płonie", "duży ogień", "strażacy", "gaszą", "płomienie"]
+
+    if any(word in tekst for word in keywords_high):
+        score += 2
+    elif any(word in tekst for word in keywords_medium):
+        score += 1
+
+    if score >= 3:
+        return "wysoka"
+    elif score == 2:
+        return "średnia"
+    else:
+        return "mała"
+
+
 def is_financial_post(text: str) -> bool:
     money_patterns = [
         r"\$\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?",
@@ -31,12 +57,14 @@ def is_financial_post(text: str) -> bool:
     ]
     return any(re.search(pattern, text, re.IGNORECASE) for pattern in money_patterns)
 
+
 def extract_location_candidates(text: str) -> list[str]:
     doc = nlp(text)
     locations = [ent.text for ent in doc.ents if ent.label_ in ("GPE", "LOC")]
     abbreviations = re.findall(r'\b[A-Z]{2,3}\b', text)
     raw_candidates = set(locations + abbreviations)
     return list({CUSTOM_REGION_ALIASES.get(loc.strip(), loc.strip()) for loc in raw_candidates})
+
 
 def geocode_location(name: str):
     try:
@@ -45,12 +73,14 @@ def geocode_location(name: str):
     except GeocoderTimedOut:
         return geocode_location(name)
 
+
 def reverse_location(lat: float, lon: float):
     try:
         time.sleep(1)
         return geolocator.reverse((lat, lon), exactly_one=True, timeout=10)
     except (GeocoderTimedOut, GeocoderServiceError):
         return None
+
 
 def get_or_create_location(cur, location_text: str):
     loc = geocode_location(location_text)
@@ -78,6 +108,7 @@ def get_or_create_location(cur, location_text: str):
     """, (lon, lat, address[:255], woj))
 
     return cur.fetchone()[0]
+
 
 def scrape_and_store_posts():
     conn = get_db_connection()
@@ -110,7 +141,7 @@ def scrape_and_store_posts():
 
                 if is_financial_post(full_text):
                     print(f"💸 Pominięto post o charakterze finansowym: {source_url}")
-                    continue 
+                    continue
 
                 cur.execute("""
                     SELECT 1 FROM pozar 
@@ -131,22 +162,19 @@ def scrape_and_store_posts():
                     continue
 
                 reliability = compute_reliability_score(post.score, post.num_comments)
-                #if reliability < 0.2:
-                 #   print(f"⚠️ Pominięto post o wiarygodności {reliability:.2f} < 0.2: {source_url}")
-                  #  continue
+                ocena = ocena_zagrozenia_reddit(post.score, post.num_comments, full_text)
 
                 cur.execute("""
-                    INSERT INTO pozar (data_wykrycia, opis, zrodlo_danych, wiarygodnosc, lokalizacja_id_lok)
-                    VALUES (%s, %s, %s, %s, %s) RETURNING id_pozaru
-                """, (created, title[:1000], source_url, reliability, lokalizacja_id))
+                    INSERT INTO pozar (data_wykrycia, opis, zrodlo_danych, wiarygodnosc, lokalizacja_id_lok, ocena_zagrozenia)
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id_pozaru
+                """, (created, title[:1000], source_url, reliability, lokalizacja_id, ocena))
                 pozar_id = cur.fetchone()[0]
 
-                # Dodanie raportu
                 cur.execute("""
                     INSERT INTO raport (tekst, data_publikacji, autor, pozar_id_pozaru, zrodla_danych_id_zr)
                     VALUES (%s, %s, %s, %s, %s)
                 """, (
-                    content[:4000] if content else title[:4000],
+                    content[:1000] if content else title[:1000],
                     created,
                     str(post.author.name)[:100] if post.author else "anon",
                     pozar_id,
@@ -154,7 +182,7 @@ def scrape_and_store_posts():
                 ))
 
                 conn.commit()
-                print(f"✅ Dodano post: {title}")
+                print(f"✅ Dodano post: {title} (ocena zagrożenia: {ocena})")
 
         except Exception as e:
             print(f"❌ Błąd w subreddicie {sub}: {e}")
@@ -163,9 +191,6 @@ def scrape_and_store_posts():
     cur.close()
     conn.close()
 
-if __name__ == "__main__":
-    scrape_and_store_posts()
-    print("✅ Scraping zakończony!")
 
 def update_reddit_data():
     print("🔁 Aktualizacja danych z Reddita...")
