@@ -5,3 +5,5 @@ praw
 geopy
 spacy
 requests
+beautifulsoup4
+pdfplumber

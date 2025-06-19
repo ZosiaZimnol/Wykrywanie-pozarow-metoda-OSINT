@@ -5,6 +5,7 @@ from app.routes.reddit_scraper import scrape_and_store_posts
 from app.routes.nasa_scraper import fetch_and_store_nasa_fires
 from app.db.database import get_db_connection
 from app.routes import reddit_scraper, nasa_scraper
+from app.routes.nifc_scraper import fetch_and_store_nifc_reports
 
 app = FastAPI()
 
@@ -24,6 +25,7 @@ print("✅ ROUTER ZOSTAŁ ZAŁADOWANy")
 # 🔘 Endpoint wywoływany przyciskiem „Aktualizuj”
 @app.post("/aktualizuj")
 def run_update(background_tasks: BackgroundTasks):
+    background_tasks.add_task(fetch_and_store_nifc_reports)
     background_tasks.add_task(scrape_and_store_posts)
     background_tasks.add_task(fetch_and_store_nasa_fires)
     return {"status": "Aktualizacja rozpoczęta"}

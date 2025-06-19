@@ -1,0 +1,53 @@
+--Zmniejszyłam ilość znaków dla danych tekstowych z 4000 do 1000 w raport.tekst
+--oraz 1000 do 500 w raport.opis
+
+--dodano 'ocena_zagrozenia'  w tabeli pozar
+
+
+
+
+-- Wymagane rozszerzenie do danych geoprzestrzennych
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- Tabela lokalizacji z obsługą współrzędnych geoprzestrzennych
+CREATE TABLE lokalizacja (
+    id_lok SERIAL PRIMARY KEY,
+    adres_opisowy VARCHAR(255) NOT NULL,
+    wojewodztwo VARCHAR(255) NOT NULL,
+    geom geometry(Point, 4326),
+    dlugosc_geo NUMERIC(10,6) GENERATED ALWAYS AS (ST_X(geom)) STORED,
+    szerokosc_geo NUMERIC(10,6) GENERATED ALWAYS AS (ST_Y(geom)) STORED
+);
+
+-- Tabela źródeł danych
+CREATE TABLE zrodla_danych (
+    id_zr SERIAL PRIMARY KEY,
+    nazwa VARCHAR(255) NOT NULL,
+    typ VARCHAR(100) NOT NULL,
+    adres_url VARCHAR(255) NOT NULL,
+    metoda_dostepu VARCHAR(100) NOT NULL
+);
+
+
+-- Tabela pożarów
+CREATE TABLE pozar (
+    id_pozaru SERIAL PRIMARY KEY,
+    data_wykrycia DATE NOT NULL,
+    opis VARCHAR(500) NOT NULL,
+    zrodlo_danych VARCHAR(255) NOT NULL,
+    wiarygodnosc NUMERIC(3,2) NOT NULL,
+    lokalizacja_id_lok INTEGER REFERENCES lokalizacja(id_lok),
+	ocena_zagrozenia VARCHAR(100) NOT NULL
+);
+
+--raport nie usuwamy, bo w nim reprezentujemy wszsytkie zebrane informacje ze wszsytkich tabel
+
+-- Tabela raportów
+CREATE TABLE raport (
+    id_rap SERIAL PRIMARY KEY,
+    tekst VARCHAR(1000) NOT NULL,
+    data_publikacji DATE NOT NULL,
+    autor VARCHAR(255) NOT NULL,
+    pozar_id_pozaru INTEGER NOT NULL REFERENCES pozar(id_pozaru),
+    zrodla_danych_id_zr INTEGER REFERENCES zrodla_danych(id_zr)
+);

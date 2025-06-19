@@ -106,15 +106,16 @@ def fetch_and_store_nasa_fires():
             lokalizacja_id = cur.fetchone()[0]
 
             cur.execute("""
-                INSERT INTO pozar (data_wykrycia, opis, zrodlo_danych, wiarygodnosc, lokalizacja_id_lok)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO pozar (data_wykrycia, opis, zrodlo_danych, wiarygodnosc, lokalizacja_id_lok, ocena_zagrozenia)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id_pozaru
             """, (
                 datetime.utcnow().date(),
                 "Pożar wykryty przez satelitę NASA FIRMS",
                 NASA_URL,
                 wiarygodnosc,
-                lokalizacja_id
+                lokalizacja_id,
+                ocena
             ))
             pozar_id = cur.fetchone()[0]
 
@@ -131,7 +132,7 @@ def fetch_and_store_nasa_fires():
 
             conn.commit()
             count += 1
-            print(f"✅ Dodano pożar z raportem: {address} ({lat}, {lon}) - wiarygodność: {wiarygodnosc}")
+            print(f"✅ Dodano pożar z raportem: {address} ({lat}, {lon}) - Ocena zagrożenia: {ocena} | Wiarygodność: {wiarygodnosc}")
 
         except Exception as e:
             print(f"❌ Błąd: {e}")
