@@ -4,7 +4,7 @@ JAK URUCHOMIĆ?
 git clone https://github.com/TwojaNazwa/Wykrywanie-pozarow-metoda-OSINT.git
 cd Wykrywanie-pozarow-metoda-OSINT
 
-2.Uruchom projekt (Docker Compose):
+ 2.Uruchom projekt (Docker Compose):
 docker compose up --build
 
 3. Uruchom frontend
