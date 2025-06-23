@@ -12,9 +12,6 @@ cd frontend
 python -m http.server 8080
 
 4. Otwórz w przeglądarce:
-
-Usługa			Adres
-
 Backend (FastAPI)	http://localhost:8000/docs
 Frontend (React)	http://localhost:3000
 PgAdmin			http://localhost:5050
