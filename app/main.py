@@ -5,7 +5,7 @@ from app.routes.reddit_scraper import scrape_and_store_posts
 from app.routes.nasa_scraper import fetch_and_store_nasa_fires
 from app.db.database import get_db_connection
 from app.routes import reddit_scraper, nasa_scraper
-from app.routes.nifc_scraper import fetch_and_store_nifc_reports
+
 
 app = FastAPI()
 
@@ -22,13 +22,24 @@ app.add_middleware(
 app.include_router(test.router)
 print("✅ ROUTER ZOSTAŁ ZAŁADOWANy")
 
-# 🔘 Endpoint wywoływany przyciskiem „Aktualizuj”
 @app.post("/aktualizuj")
 def run_update(background_tasks: BackgroundTasks):
-    background_tasks.add_task(fetch_and_store_nifc_reports)
-    background_tasks.add_task(scrape_and_store_posts)
-    background_tasks.add_task(fetch_and_store_nasa_fires)
-    return {"status": "Aktualizacja rozpoczęta"}
+    try:
+        background_tasks.add_task(scrape_and_store_posts)
+        background_tasks.add_task(fetch_and_store_nasa_fires)
+        return {
+            "status": "success",
+            "message": "🔁 Dane są aktualizowane w tle (Reddit, NASA, PSP)."
+        }
+    except Exception as e:
+        print(f"❌ Błąd aktualizacji: {e}")
+        return {
+            "status": "error",
+            "message": "❌ Wystąpił błąd podczas aktualizacji danych.",
+            "details": str(e)
+        }
+
+
 
 @app.get("/")
 async def root():
@@ -63,3 +74,4 @@ def count_pozary():
     cur.close()
     conn.close()
     return {"count": count}
+
